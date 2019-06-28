@@ -478,8 +478,8 @@ def _buffer_incomplete_responses(raw_output, buf, single_message):
                 remainder_offset = buf.index(b"\n") + 1
             else:
                 remainder_offset = buf.rindex(b"\n") + 1
-            buf = buf[remainder_offset:]
             raw_output = buf[:remainder_offset]
+            buf = buf[remainder_offset:]
     return (raw_output, buf)
 
 
