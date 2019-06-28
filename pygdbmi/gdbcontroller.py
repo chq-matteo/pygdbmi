@@ -313,7 +313,7 @@ class GdbController:
             except IOError:
                 pass
 
-            if time.time() > timeout_time_sec:
+            if time.time() > timeout_time_sec or (single_message and len(responses) > 0):
                 break
 
         return responses
@@ -363,7 +363,7 @@ class GdbController:
                     timeout_time_sec,
                 )
 
-            elif time.time() > timeout_time_sec:
+            elif time.time() > timeout_time_sec or (single_message and len(responses) > 0):
                 break
 
         return responses
