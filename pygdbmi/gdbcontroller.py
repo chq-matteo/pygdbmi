@@ -330,25 +330,31 @@ class GdbController:
             events, _, _ = select.select(self.read_list, [], [], select_timeout)
             responses_list = None  # to avoid infinite loop if using Python 2
             try:
+                responses_list = self._get_responses_list(b"", "stdout", single_message)
+                responses += responses_list
+                if not single_message or len(responses) == 0:
+                    responses_list = self._get_responses_list(b"", "stderr", single_message)
+                responses += responses_list
                 for fileno in events:
-                    # new data is ready to read
-                    if fileno == self.stdout_fileno:
-                        self.gdb_process.stdout.flush()
-                        raw_output = self.gdb_process.stdout.read()
-                        stream = "stdout"
+                    if not single_message or len(responses) == 0:
+                        # new data is ready to read
+                        if fileno == self.stdout_fileno:
+                            self.gdb_process.stdout.flush()
+                            raw_output = self.gdb_process.stdout.read()
+                            stream = "stdout"
 
-                    elif fileno == self.stderr_fileno:
-                        self.gdb_process.stderr.flush()
-                        raw_output = self.gdb_process.stderr.read()
-                        stream = "stderr"
+                        elif fileno == self.stderr_fileno:
+                            self.gdb_process.stderr.flush()
+                            raw_output = self.gdb_process.stderr.read()
+                            stream = "stderr"
 
-                    else:
-                        raise ValueError(
-                            "Developer error. Got unexpected file number %d" % fileno
-                        )
+                        else:
+                            raise ValueError(
+                                "Developer error. Got unexpected file number %d" % fileno
+                            )
 
-                    responses_list = self._get_responses_list(raw_output, stream, single_message)
-                    responses += responses_list
+                        responses_list = self._get_responses_list(raw_output, stream, single_message)
+                        responses += responses_list
 
             except IOError:  # only occurs in python 2.7
                 pass
