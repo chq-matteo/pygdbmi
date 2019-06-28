@@ -246,7 +246,7 @@ class GdbController:
             return []
 
     def get_gdb_response(
-        self, timeout_sec=DEFAULT_GDB_TIMEOUT_SEC, raise_error_on_timeout=True
+        self, timeout_sec=DEFAULT_GDB_TIMEOUT_SEC, raise_error_on_timeout=True, single_message=False
     ):
         """Get response from GDB, and block while doing so. If GDB does not have any response ready to be read
         by timeout_sec, an exception is raised.
@@ -272,9 +272,9 @@ class GdbController:
             timeout_sec = 0
 
         if USING_WINDOWS:
-            retval = self._get_responses_windows(timeout_sec)
+            retval = self._get_responses_windows(timeout_sec, single_message)
         else:
-            retval = self._get_responses_unix(timeout_sec)
+            retval = self._get_responses_unix(timeout_sec, single_message)
 
         if not retval and raise_error_on_timeout:
             raise GdbTimeoutError(
@@ -284,7 +284,7 @@ class GdbController:
         else:
             return retval
 
-    def _get_responses_windows(self, timeout_sec):
+    def _get_responses_windows(self, timeout_sec, single_message):
         """Get responses on windows. Assume no support for select and use a while loop."""
         timeout_time_sec = time.time() + timeout_sec
         responses = []
@@ -297,7 +297,7 @@ class GdbController:
                     )
                 else:
                     raw_output = self.gdb_process.stdout.read().replace(b"\r", b"\n")
-                responses += self._get_responses_list(raw_output, "stdout")
+                responses += self._get_responses_list(raw_output, "stdout", single_message)
             except IOError:
                 pass
 
@@ -309,7 +309,7 @@ class GdbController:
                     )
                 else:
                     raw_output = self.gdb_process.stderr.read().replace(b"\r", b"\n")
-                responses += self._get_responses_list(raw_output, "stderr")
+                responses += self._get_responses_list(raw_output, "stderr", single_message)
             except IOError:
                 pass
 
@@ -318,7 +318,7 @@ class GdbController:
 
         return responses
 
-    def _get_responses_unix(self, timeout_sec):
+    def _get_responses_unix(self, timeout_sec, single_message):
         """Get responses on unix-like system. Use select to wait for output."""
         timeout_time_sec = time.time() + timeout_sec
         responses = []
@@ -347,7 +347,7 @@ class GdbController:
                             "Developer error. Got unexpected file number %d" % fileno
                         )
 
-                    responses_list = self._get_responses_list(raw_output, stream)
+                    responses_list = self._get_responses_list(raw_output, stream, single_message)
                     responses += responses_list
 
             except IOError:  # only occurs in python 2.7
@@ -368,7 +368,7 @@ class GdbController:
 
         return responses
 
-    def _get_responses_list(self, raw_output, stream):
+    def _get_responses_list(self, raw_output, stream, single_message):
         """Get parsed response list from string output
         Args:
             raw_output (unicode): gdb output to parse
@@ -377,7 +377,7 @@ class GdbController:
         responses = []
 
         raw_output, self._incomplete_output[stream] = _buffer_incomplete_responses(
-            raw_output, self._incomplete_output.get(stream)
+            raw_output, self._incomplete_output.get(stream), single_message
         )
 
         if not raw_output:
@@ -441,7 +441,7 @@ class GdbController:
         return None
 
 
-def _buffer_incomplete_responses(raw_output, buf):
+def _buffer_incomplete_responses(raw_output, buf, single_message):
     """It is possible for some of gdb's output to be read before it completely finished its response.
     In that case, a partial mi response was read, which cannot be parsed into structured data.
     We want to ALWAYS parse complete mi records. To do this, we store a buffer of gdb's
@@ -467,13 +467,15 @@ def _buffer_incomplete_responses(raw_output, buf):
             buf = raw_output
             raw_output = None
 
-        elif not raw_output.endswith(b"\n"):
+        else:
             # raw output doesn't end in a newline, so store everything after the last newline (if anything)
             # in the buffer, and parse everything before it
-            remainder_offset = raw_output.rindex(b"\n") + 1
+            if single_message:
+                remainder_offset = raw_output.index(b"\n") + 1
+            else:
+                remainder_offset = raw_output.rindex(b"\n") + 1
             buf = raw_output[remainder_offset:]
             raw_output = raw_output[:remainder_offset]
-
     return (raw_output, buf)
 
 
