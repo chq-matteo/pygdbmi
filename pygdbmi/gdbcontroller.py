@@ -466,7 +466,8 @@ def _buffer_incomplete_responses(raw_output, buf, single_message):
         if buf:
             # concatenate buffer and new output
             buf = b"".join([buf, raw_output])
-
+        else:
+            buf = raw_output
         if b"\n" not in buf:
             # newline was not found, so assume output is incomplete and store in buffer
             raw_output = None
