@@ -465,23 +465,20 @@ def _buffer_incomplete_responses(raw_output, buf, single_message):
     if raw_output:
         if buf:
             # concatenate buffer and new output
-            raw_output = b"".join([buf, raw_output])
-            buf = None
+            buf = b"".join([buf, raw_output])
 
-        if b"\n" not in raw_output:
+        if b"\n" not in buf:
             # newline was not found, so assume output is incomplete and store in buffer
-            buf = raw_output
             raw_output = None
-
         else:
             # raw output doesn't end in a newline, so store everything after the last newline (if anything)
             # in the buffer, and parse everything before it
             if single_message:
-                remainder_offset = raw_output.index(b"\n") + 1
+                remainder_offset = buf.index(b"\n") + 1
             else:
-                remainder_offset = raw_output.rindex(b"\n") + 1
-            buf = raw_output[remainder_offset:]
-            raw_output = raw_output[:remainder_offset]
+                remainder_offset = buf.rindex(b"\n") + 1
+            buf = buf[remainder_offset:]
+            raw_output = buf[:remainder_offset]
     return (raw_output, buf)
 
 
